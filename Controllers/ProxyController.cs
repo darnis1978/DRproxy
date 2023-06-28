@@ -10,28 +10,35 @@ namespace DRproxy.Controllers;
 public class ProxyController : ControllerBase
 {
     private readonly ILogger<ProxyController> _logger;
-    private IHubContext < MessageHub, IMessageHubClient > _messageHub;
+    // private IHubContext < MessageHub > _messageHub;
+    // private readonly IMemeoryStorageService _connections; 
+
+    private readonly IDigitalReceiptService _digitalReceipt;
 
 
-    public ProxyController(ILogger<ProxyController> logger, IHubContext < MessageHub, IMessageHubClient > messageHub)
+    public ProxyController( ILogger<ProxyController> logger, 
+                            // IHubContext < MessageHub > messageHub, 
+                            // IMemeoryStorageService connections,
+                            IDigitalReceiptService digitalReceipt
+                        )
     {
         _logger = logger;
-        _messageHub = messageHub;
+        // _messageHub = messageHub;
+        // _connections = connections;
+        _digitalReceipt = digitalReceipt;
 
     }
 
     [HttpPost("receipt")]
-    public ActionResult<String> receipt([FromBody] JsonDocument txt)
+    public async Task<ActionResult<DRfiscalResponse>> receipt([FromBody] JsonDocument txt)
     { 
+    
+        // Process transaction files
+        DRfiscalResponse res = await _digitalReceipt.processTransaction(txt);
+        if (res._errorCode!= null){
+            return NotFound(res);   
+        }
 
-        Dictionary<string, object> payload = JsonSerializer.Deserialize<Dictionary<string, object>>(txt);
-        
-        Object posId;
-        payload!.TryGetValue("PosNmbr" , out posId);
-        // _messageHub.Clients.All.SendAsync("ReceiveMessage", "this is DR feedbeck" );
-        _logger.LogInformation(posId?.ToString());
-        _messageHub.Clients.All.SendResponseToClient(txt.ToString(), posId?.ToString());
-
-        return Ok(txt);
+        return Ok(res);
     }
 }

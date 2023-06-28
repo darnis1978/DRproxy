@@ -1,6 +1,3 @@
-using System.Collections.Generic;
-using System.Linq;
-
 namespace DRproxy.MemeoryStorage
 {
 
@@ -32,7 +29,7 @@ namespace DRproxy.MemeoryStorage
         {
             lock (_connections)
             {
-               _connections.Add( new ConnectionInfo("clientId", "connectionId"));
+               _connections.Add( new ConnectionInfo(clientId, connectionId));
             }
         }
 
@@ -53,7 +50,7 @@ namespace DRproxy.MemeoryStorage
             }
         }
 
-            public String GetConnectiontId(string clientId)
+        public String GetConnectiontId(string clientId)
         {
             string _connectionId = "";
             lock (_connections)
