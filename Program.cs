@@ -1,4 +1,5 @@
 using DRproxy.Hubs;
+using DRproxy.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,9 +12,7 @@ builder.Services.AddSignalR();
 
 // Add other services
 builder.Services.AddSingleton<IMemeoryStorageService, MemeoryStorageService>();
-builder.Services.AddScoped<IMemeoryStorageService, MemeoryStorageService>();
 builder.Services.AddScoped<IDigitalReceiptService, DigitalReceiptService>();
-
 
 // Add CORS pplicy
 builder.Services.AddCors(options => {

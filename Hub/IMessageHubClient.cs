@@ -1,7 +1,5 @@
-using Microsoft.AspNetCore.SignalR;
+namespace DRproxy.Hubs;
 
-namespace DRproxy.Hubs {
-    public interface IMessageHubClient {
-        Task SendResponseToClient(string message, string clientId);
-    }
+public interface IMessageHubClient {
+    
 }

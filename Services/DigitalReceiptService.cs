@@ -1,33 +1,15 @@
-using DRproxy.Controllers;
-using DRproxy.MemeoryStorage;
 using Microsoft.AspNetCore.SignalR;
-using DRproxy.Hubs;
 using System.Text.Json;
-using Microsoft.AspNetCore.Mvc;
+using DRproxy.Hubs;
+using DRproxy.Services;
 
-public interface IDigitalReceiptService
-{
-    public Task<DRfiscalResponse> processTransaction(JsonDocument txt);
-
-}
-
-public class DRfiscalResponse {
-    public int? _errorCode { get; set; }
-    public string? _UID { get; set; }
-
-}
-
-public class DRclientResponse {
-    
-    public string? _clientId { get; set; }
-    public string? _QRcode { get; set; }
-}
+namespace DRproxy.Services;
 
 public class DigitalReceiptService: IDigitalReceiptService
 {    
-       
-       private readonly IMemeoryStorageService _connectionsPool; 
-       private IHubContext <MessageHub> _messageHub;
+    
+    private readonly IMemeoryStorageService _connectionsPool; 
+    private IHubContext <MessageHub> _messageHub;
 
 
         public DigitalReceiptService(
@@ -39,11 +21,11 @@ public class DigitalReceiptService: IDigitalReceiptService
             _messageHub = messageHub;
         }
 
-         public async Task<DRfiscalResponse> processTransaction(JsonDocument txt){
-       
+        public async Task<DRfiscalResponse> processTransaction(JsonDocument txt){
+    
     
             Dictionary<string, object>? payload = JsonSerializer.Deserialize<Dictionary<string, object>>(txt);
-            if (payload == null){       
+            if (payload == null) {       
                 return new DRfiscalResponse() { _errorCode= 1, _UID= null } ;
             }
         
@@ -52,7 +34,7 @@ public class DigitalReceiptService: IDigitalReceiptService
             payload!.TryGetValue("PosNmbr" , out _clientId);
 
             // get connection id from connections pool
-            string _connectionId = _connectionsPool.GetConnectiontId(_clientId.ToString());
+            string _connectionId = _connectionsPool.GetConnectiontId(_clientId!.ToString()!);
             Console.WriteLine("--------------------------------------------------------------------");
             Console.WriteLine("Got request from client,  [POS: " + _clientId.ToString() + "] [Connection ID: " + _connectionId + "]" );
         
@@ -74,8 +56,5 @@ public class DigitalReceiptService: IDigitalReceiptService
 
             return new DRfiscalResponse() {_errorCode=null, _UID= response._QRcode} ;
 
-         }
-    
-    
-    
-}
+        }           
+}  
