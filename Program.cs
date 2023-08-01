@@ -13,6 +13,7 @@ builder.Services.AddSignalR();
 // Add other services
 builder.Services.AddSingleton<IMemeoryStorageService, MemeoryStorageService>();
 builder.Services.AddScoped<IDigitalReceiptService, DigitalReceiptService>();
+builder.Services.AddScoped<ITokenStorageService, TokenStorageService>();       
 
 // Add CORS pplicy
 builder.Services.AddCors(options => {

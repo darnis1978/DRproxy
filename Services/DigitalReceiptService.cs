@@ -11,14 +11,18 @@ public class DigitalReceiptService: IDigitalReceiptService
     private readonly IMemeoryStorageService _connectionsPool; 
     private IHubContext <MessageHub> _messageHub;
 
+    private ITokenStorageService _tokenStorage;
+
 
         public DigitalReceiptService(
                                     IHubContext < MessageHub > messageHub, 
-                                    IMemeoryStorageService connectionPool
+                                    IMemeoryStorageService connectionPool,
+                                    ITokenStorageService tokenStorage
                                     ){
 
             _connectionsPool = connectionPool;
             _messageHub = messageHub;
+           _tokenStorage = tokenStorage;
         }
 
         public async Task<DRfiscalResponse> processTransaction(JsonDocument txt){
@@ -41,6 +45,12 @@ public class DigitalReceiptService: IDigitalReceiptService
             // communication with DigitaReceipt server
             Console.WriteLine("--------------------------------------------------------------------");
             Console.WriteLine("communication with DR,    [POS: " + _clientId.ToString() + "] [Connection ID: " + _connectionId + "]" );
+
+            
+                       
+
+            string? token=await _tokenStorage.Get();
+            // send receipt to reciever 
             Thread.Sleep(2000);
 
             // send feedback to client
