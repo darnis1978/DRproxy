@@ -22,7 +22,7 @@ public class DigitalReceiptService: IDigitalReceiptService
 
             _connectionsPool = connectionPool;
             _messageHub = messageHub;
-           _tokenStorage = tokenStorage;
+            _tokenStorage = tokenStorage;
         }
 
         public async Task<DRfiscalResponse> processTransaction(JsonDocument txt){
@@ -45,11 +45,13 @@ public class DigitalReceiptService: IDigitalReceiptService
             // communication with DigitaReceipt server
             Console.WriteLine("--------------------------------------------------------------------");
             Console.WriteLine("communication with DR,    [POS: " + _clientId.ToString() + "] [Connection ID: " + _connectionId + "]" );
-
+             
+            // get token
+            string? token= await _tokenStorage.Get();
+         
+            Console.WriteLine("--------------------------------------------------------------------");
+            Console.WriteLine("token is stored" );
             
-                       
-
-            string? token=await _tokenStorage.Get();
             // send receipt to reciever 
             Thread.Sleep(2000);
 

@@ -13,15 +13,17 @@ namespace DRproxy.Services;
 
 public class TokenStorageService : ITokenStorageService
 {
-    public required string Url {get; set;} = "https://vendor.stg.anybill.de/api/v3/store";
+    public required string Url {get; set;} = "https://adanybill.b2clogin.com/ad.anybill.de/oauth2/v2.0/token";
     public required string User {get; set;} = "diebold-nixdorf-stg";
     public required string Password {get;set;}= "kYIm$$~\"_Gk94,";
     public required string Client_id {get;set;} = "e2db9b99-866f-41b8-b148-bf501dc11d4a";
+    public required string Query_param {get;set;} = "b2c_1_ropc_vendor";
+
     private string? _Token;
     private readonly ILogger _logger;
-    private DateTime? _TokenExpiryDate;
+    private DateTime? _TokenExpiryDate {get;set;}
     private string? _RefreshToken {get;set;}
-    private DateTime? _RefreshTokenExpiryDate;
+    private DateTime? _RefreshTokenExpiryDate {get;set;}
     
     
     public TokenStorageService(ILogger<TokenStorageService> logger)
@@ -73,45 +75,32 @@ public class TokenStorageService : ITokenStorageService
         builder.Query = query.ToString();
         return builder.ToString();
     }
-
-    
+   
     private async Task<Boolean> GetTokenFromAPIAsync () 
     {
-    using (HttpClient client = new HttpClient())
+        using (HttpClient client = new HttpClient())
         {
-            
-            
-            var dict=new Dictionary<string,string>{{"grant_type","password"}
-                                                    ,{"username",User}
-                                                    ,{"password",Password}
-                                                    ,{"client_id",Client_id}
+            // create request body      
+            var dict=new Dictionary<string,string>{
+                                                     {"grant_type","password"}
+                                                    ,{"username", this.User}
+                                                    ,{"password", this.Password}
+                                                    ,{"client_id",this.Client_id}
                                                     ,{"scope","https://ad.anybill.de/vendor/store offline_access"}
                                                     ,{"response_type","token"}
                                                 };
-            var _url= AddQueryParametersToURL (this.Url,new Dictionary<string,string>(){{"p","b2c_1_ropc_vendor"}});
-
-            var request = new HttpRequestMessage(HttpMethod.Post, _url){Content=new FormUrlEncodedContent(dict)};
-            
-            
-            // Nic nie zmienia - 
-            // request.Content.Headers.ContentType= MediaTypeHeaderValue.Parse("application/x-www-form-urlencoded"); 
-            
-            // Nic nie zmienia 
-            // request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/x-www-form-urlencoded")); 
-            
-            // Nie Pozwala 
-            // request.Headers.Add("Content-Type", "application/x-www-form-urlencoded");
-
-            var response = await client.SendAsync(request);
-
+            // create query param
+            var url= AddQueryParametersToURL (this.Url,new Dictionary<string,string>(){{"p",this.Query_param}});
+            // create Http request message
+            var request = new HttpRequestMessage(HttpMethod.Post, url){Content=new FormUrlEncodedContent(dict)};
+            var response = await client.SendAsync(request);        
             var contents = await response.Content.ReadAsStringAsync();
-
 
             if (response.StatusCode==System.Net.HttpStatusCode.OK)
             {       
                 _logger.LogInformation($"Token Response Ok : {response.StatusCode} , {contents}");
-                var responseObj  = JsonSerializer.Deserialize<AnybillResponseTokenJSON>(contents);
-                this._Token=responseObj.access_token;
+                var responseObj = JsonSerializer.Deserialize<AnybillResponseTokenJSON>(contents);
+                this._Token=responseObj!.access_token;
                 if (Int32.TryParse(responseObj.refresh_token_expires_in,out int outSeconds))
                 {
                     this._TokenExpiryDate=DateTime.Now.AddSeconds(outSeconds); 
@@ -147,24 +136,12 @@ public class TokenStorageService : ITokenStorageService
                                                     ,{"scope","https://ad.anybill.de/vendor/store offline_access"}
                                                     ,{"response_type","token"}
                                                 };
-            var _url= AddQueryParametersToURL (this.Url,new Dictionary<string,string>(){{"p","b2c_1_ropc_vendor"}});
+            var url= AddQueryParametersToURL (this.Url,new Dictionary<string,string>(){{"p","b2c_1_ropc_vendor"}});
 
-            var request = new HttpRequestMessage(HttpMethod.Post, _url){Content=new FormUrlEncodedContent(dict)};
-            
-            
-            // Nic nie zmienia - 
-            // request.Content.Headers.ContentType= MediaTypeHeaderValue.Parse("application/x-www-form-urlencoded"); 
-            
-            // Nic nie zmienia 
-            // request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/x-www-form-urlencoded")); 
-            
-            // Nie Pozwala 
-            // request.Headers.Add("Content-Type", "application/x-www-form-urlencoded");
-
+        
+            var request = new HttpRequestMessage(HttpMethod.Post, url){Content=new FormUrlEncodedContent(dict)};
             var response = await client.SendAsync(request);
-
             var contents = await response.Content.ReadAsStringAsync();
-
 
             if (response.StatusCode==System.Net.HttpStatusCode.OK)
             {       
