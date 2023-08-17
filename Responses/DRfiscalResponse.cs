@@ -1,7 +1,7 @@
 namespace DRproxy.Services;
 
 public class DRfiscalResponse {
-    public int? _errorCode { get; set; }
-    public string? _UID { get; set; }
+    public int? ErrorCode { get; set; }
+    public string? UID { get; set; }
 
 }
