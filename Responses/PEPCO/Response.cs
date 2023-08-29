@@ -1,6 +1,6 @@
-namespace DRproxy.Services;
+namespace DRproxy.Responses.PEPCO;
 
-public class DRfiscalResponse {
+public class Response {
     public int? ErrorCode { get; set; }
     public string? UID { get; set; }
 

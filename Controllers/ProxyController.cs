@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Mvc;
-using System.Text.Json;
 using DRproxy.Services;
 using System.Text.Json.Nodes;
 
@@ -24,14 +23,9 @@ public class ProxyController : ControllerBase
     }
 
     [HttpPost("Receipt")]
-    public async Task<ActionResult<DRfiscalResponse>>Receipt([FromBody] JsonObject json)
+    public async Task<ActionResult>Receipt([FromBody] JsonObject json)
     {   
-        // Process transaction files
-        DRfiscalResponse res = await _digitalReceipt.ProcessTransaction(json);
-        if (res.ErrorCode!= null){
-            return NotFound(res);   
-        }
-
-        return Ok(res);
+        ActionResult response = await _digitalReceipt.ProcessTransaction(json) ;
+        return response;
     }
 }

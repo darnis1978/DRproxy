@@ -1,106 +1,118 @@
-using Microsoft.AspNetCore.SignalR;
-using System.Text.Json;
-using DRproxy.Hubs;
-using DRproxy.Services;
-using FiscalModel;
-
 using System.Text.Json.Nodes;
-using System.Linq;
+using Microsoft.AspNetCore.SignalR;
+using DRproxy.Hubs;
+using anybill.POS.Client.Factories;
+using anybill.POS.Client.Options;
+using anybill.POS.Client;
+using Microsoft.AspNetCore.Mvc;
+using anybill.POS.Client.Exceptions;
+using anybill.POS.Client.Models.Bill;
+using anybill.POS.Client.Models.Bill.Response;
 
 namespace DRproxy.Services;
 
-public class DigitalReceiptService: IDigitalReceiptService
+public abstract class DigitalReceiptService: IDigitalReceiptService
 {    
-    
-    private readonly IMemeoryStorageService _connectionsPool; 
-    private readonly IHubContext <MessageHub> _messageHub;
-    private readonly ITokenStorageService _tokenStorage;
+
+    private  AnybillClientFactory? _clientFactory;
+    private  IAnybillClient? _anybillClient;
+    private bool _auth = false;
+
+    public IAnybillClient AnybillClient => _anybillClient!;
+    public required string User { get; set; } = "";
+    public required string Password { get; set; } = "";
+    public required string Client_id { get; set; } = "";
+    public required string MerchantId { get; set; } = "";
 
 
-    public DigitalReceiptService(
-                                IHubContext < MessageHub > messageHub, 
-                                IMemeoryStorageService connectionPool,
-                                ITokenStorageService tokenStorage
-                                ){
 
-        _connectionsPool = connectionPool;
-        _messageHub = messageHub;
-        _tokenStorage = tokenStorage;
+    public void CreateService()
+    {
+        _clientFactory = new AnybillClientFactory();
+        _anybillClient = _clientFactory.Create(x => x.WithUsername(User).WithPassword(Password).WithClientId(Client_id), AnybillEnvironment.Staging);     
     }
 
-    public async Task<DRfiscalResponse> ProcessTransaction(JsonObject json) {
-
-
-        FiscalDTO fiscalDTO;
-        string clientId;
-        string connectionId; 
-        string? token;
- 
-
+     public virtual async Task CreateToken()
+     {       
         try {
-            
-            // parse request body to FiscalDTO model
-            fiscalDTO = FiscalDTO.FromJson(json.ToJsonString());
-
-            // get client id (POS number) from fiscalDTO     
-            clientId = fiscalDTO.Body.OfType<Body>().First(item => item.FiscalFooter !=null).FiscalFooter.CashNumber;
-
-            // get connection id for this client id from connections pool
-            connectionId = _connectionsPool.GetConnectiontId(clientId);
-            connectionId = "";
-            if (connectionId.Length == 0)
-                throw new Exception( message: $"there is no connectionId for clientId: {clientId}" );
-
-            Console.WriteLine("--------------------------------------------------------------------");
-            Console.WriteLine("Got request from client,  [POS: " + clientId + "] [Connection ID: " + connectionId + "]" );
-
-            // get token
-            token = await _tokenStorage.Get();
-            if ( token == null )
-                 throw new Exception( message: "token was not created" );
-
-
-    
-
-
-
-            // communication with DigitaReceipt server
-            Console.WriteLine("--------------------------------------------------------------------");
-            Console.WriteLine("communication with DR,    [POS: " + clientId + "] [Connection ID: " + connectionId + "]" );
-                
-            
-            Console.WriteLine("--------------------------------------------------------------------");
-            Console.WriteLine("token is stored" );
-            
-            // send receipt to reciever 
-            Thread.Sleep(2000);
-
-            // send feedback to client
-            Console.WriteLine("--------------------------------------------------------------------");
-            Console.WriteLine("send client response,     [POS: " + clientId.ToString() + "] [Connection ID: " + connectionId + "]" );
-
-
-
-            var response = new DRclientResponse() { 
-                ClientId= clientId.ToString(), 
-                QRcode= clientId.ToString() + "|" + connectionId
-            }; 
-            
-            await _messageHub.Clients.Client(connectionId).SendAsync("ReceiveMessage", JsonSerializer.Serialize<DRclientResponse>(response));
-
-            return new DRfiscalResponse() {ErrorCode=null, UID= response.QRcode} ;
-        
-        } catch(Exception e) {
-            Console.WriteLine(e.Message);
-            return new DRfiscalResponse() { ErrorCode = 1, UID= null } ;
+            // create authentication token
+            await AnybillClient.Authentication.EnsureAsync();  
+            _auth = true;
+        } catch (AuthenticationException)
+        {
+            _auth = false;
+            throw;
         }
-
-    }           
-}  
+    }
 
 
+    // public virtual async Task<bool> SendBill(AddBill bill, AddBillOptions billOptions)
+    // {
+        
+    //     try {
+    //         var billResponse = await _anybillClient!.Bill.CreateAsync(bill, billOptions);
+    //         switch (billResponse)
+    //         {
+    //             case IExternalIdResponse externalIdResponse:
+    //                 // _logger.LogInformation("IsAssigned: " + externalIdResponse.IsAssigned);
+    //                 break;
+    //             case ILoyaltyCardResponse loyaltyCardResponse:
+    //                 // _logger.LogInformation("IsAssigned: " + loyaltyCardResponse.IsAssigned);
+    //                 break;
+    //             case IMatchedBillResponse matchedBillResponse:
+    //                 // _logger.LogInformation("IsAssigned: " + matchedBillResponse.IsAssigned);
+    //                 break;
+    //             case IUrlBillResponse urlBillResponse:
+    //                 // _logger.LogInformation("GetMy website: " + urlBillResponse.Url);
+    //                 break;
+    //             case IUserIdResponse userIdResponse:
+    //                 // _logger.LogInformation("IsAssigned: " + userIdResponse.IsAssigned);
+    //                 break;
+    //         }
+    //     } catch (AuthenticationException authenticationException)
+    //     {
+    //         // Authentication failed because username, password or clientId is wrong.
+    //         _logger.LogError(authenticationException.ErrorDescription);
+    //         _auth = false;
+    //         return new OkObjectResult(null);
+    //     }
+    //     catch (BadRequestException badRequestException)
+    //     {
+    //         // Request failed. e.g. validation error.
+    //         _logger.LogError(badRequestException.Message);
+    //         return new OkObjectResult(null);
+    //     }
+    //     catch (ForbiddenException forbiddenException)
+    //     {
+    //         // Request failed because user is not allowed to use the called endpoint.
+    //         _logger.LogError(forbiddenException.Message);
+    //         return new OkObjectResult(null);
+    //     }
+    //     catch (NotFoundException notFoundException)
+    //     {
+    //         // Request failed because called endpoint does not exists.
+    //         _logger.LogError(notFoundException.Message);
+    //         return new OkObjectResult(null);
+    //     }
+    //     catch (UnauthorizedException unauthorizedException)
+    //     {
+    //         // Request failed because user is not authorized.
+    //         _logger.LogError(unauthorizedException.Message);
+    //         return new OkObjectResult(null);
+    //     }
+    //     catch (UnhandledException unhandledException)
+    //     {
+    //         // Request failed for some reason.
+    //         _logger.LogError(unhandledException.Message);
+    //         return new OkObjectResult(null);
+    //     }
+    //     catch(Exception e) {
+    //         _logger.LogError(e.Message);
+    //         return new OkObjectRe
 
-            // foreach(var body in fiscalDTO.Body) {
-            //     if (body.FiscalFooter != null)
-            //         clientId = body.FiscalFooter.CashNumber;
-            // }
+    //     return true;
+    // }
+
+    public abstract Task<ActionResult>ProcessTransaction(JsonObject json);
+
+}

@@ -1,6 +1,6 @@
-namespace DRproxy.Services;
+namespace DRproxy.Responses.PEPCO;
 
-public class DRclientResponse {
+public class ClientResponse {
     
     public string? ClientId { get; set; }
     public string? QRcode { get; set; }
