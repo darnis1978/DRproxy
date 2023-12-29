@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using DRproxy.Services;
 using System.Text.Json.Nodes;
+using anybill.POS.Client.Response.Bill;
 
 namespace DRproxy.Controllers;
 
@@ -28,4 +29,5 @@ public class ProxyController : ControllerBase
         ActionResult response = await _digitalReceipt.ProcessTransaction(json) ;
         return response;
     }
+
 }

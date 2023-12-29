@@ -26,6 +26,7 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using DRproxy.Responses.PEPCO;
 using anybill.POS.Client.Models.Bill.Data.Line.Extension;
 using anybill.POS.Client.Models.Bill.Data.Extension.Discount;
+using anybill.POS.Client.Models.Bill.Data.Extension.Discount.VatAmount;
 
 namespace DRproxy.Services.PEPCO;
 
@@ -55,9 +56,9 @@ public class DigitalReceiptService_PEPCO: DigitalReceiptService
 
         // set bill settings
         _currency = "PLN";   // according to ISO 4217
-        _payments = new string[] {  // 0 - Gotówka, 2 - Karta, 3 - Czek, 4 - Bon, 5 - Kredyt, 6 - Inna, 7 - Voucher, 8 - Przelew
-            "Gotówka",
+        _payments = new string[] {  // 1 - Gotówka, 2 - Karta, 3 - Czek, 4 - Bon, 5 - Kredyt, 6 - Inna, 7 - Voucher, 8 - Przelew
             "",
+            "Gotówka",
             "Karta", 
             "Czek", 
             "Bon", 
@@ -71,10 +72,6 @@ public class DigitalReceiptService_PEPCO: DigitalReceiptService
         CreateService();   
     }
 
-
-
-
-
     private PaymentTypeInformation CreatedPayment(Payment fiscalPayment) {
 
         PaymentTypeInformation payment = new() {
@@ -84,7 +81,7 @@ public class DigitalReceiptService_PEPCO: DigitalReceiptService
  
         switch (fiscalPayment.Type) {
 
-            case 0:
+            case 1:
                 payment.Extension = new() {  
                     Type = anybill.POS.Client.Models.Bill.Data.PaymentType.Extension.PaymentType.Cash,
                 };
@@ -134,10 +131,10 @@ public class DigitalReceiptService_PEPCO: DigitalReceiptService
 
             // get connection id for this client id from connections pool
             connectionId = _connectionsPool.GetConnectiontId(clientId);
-            if (connectionId.Length == 0)
-                throw new Exception( message: $"there is no connectionId for clientId: {clientId}" );
+            // if (connectionId.Length == 0)
+            //     throw new Exception( message: $"there is no connectionId for clientId: {clientId}" );
 
-            _logger.LogInformation("Got request from client,  [POS: " + clientId + "] [Connection ID: " + connectionId + "]" );
+            // _logger.LogInformation("Got request from client,  [POS: " + clientId + "] [Connection ID: " + connectionId + "]" );
 
 
             // Process payload - fiscal receipt
@@ -155,6 +152,8 @@ public class DigitalReceiptService_PEPCO: DigitalReceiptService
             List<VatRatesSummary> vatDetails = fiscalDTO.Body.OfType<Body>().First(item => item.VatSummary !=null).VatSummary.VatRatesSummary.ToList();       
             FiscalFooter fiscalFooter =  fiscalDTO.Body.OfType<Body>().First(item => item.FiscalFooter !=null).FiscalFooter;       
 
+            _logger.LogInformation("New transaction to process: " + fiscalFooter.BillNumber);
+
 
             // Collect and prepare all items information and payment information
             foreach (var fiscalLine in fiscalDTO.Body)
@@ -169,7 +168,7 @@ public class DigitalReceiptService_PEPCO: DigitalReceiptService
                     defultLine.Text = fiscalLine.SellLine.Name;  
                     // additional desc
                     defultLine.AdditionalText = fiscalLine.SellLine.Desc;
-                    
+                    // item price
                     defultLine.FullAmountInclVat = itemPrice;
                     // main item information
                     defultLine.Item = new();
@@ -178,6 +177,7 @@ public class DigitalReceiptService_PEPCO: DigitalReceiptService
                     defultLine.Item.PricePerUnit = itemPrice;
                     defultLine.Item.Quantity = Decimal.Parse(fiscalLine.SellLine.Quantity); 
 
+                    // to count FullAmountInclVatBeforeDiscounts
                     totalValue += defultLine.Item.PricePerUnit;
 
                     // item VAT information
@@ -202,7 +202,7 @@ public class DigitalReceiptService_PEPCO: DigitalReceiptService
 
                 };
 
-                 // Discount information
+                // Discount Line information
                 if (fiscalLine.DiscountLine != null)
                 {
                     // take the last added line - should be SaleLine or DiscountLine
@@ -210,24 +210,75 @@ public class DigitalReceiptService_PEPCO: DigitalReceiptService
                     DefaultLineDiscount discount = new() {
                         SequenceNumber = defultLine.Extension.Discounts.Count,
                         DiscountId = fiscalLine.DiscountLine.Name + fiscalLine.DiscountLine.Value.ToString(),
-                        FullAmountInclVat = fiscalLine.DiscountLine.Value,
+                        FullAmountInclVat = (decimal)fiscalLine.DiscountLine.Value/100,         
                     };
+
+                    // update line information about disc info
+                    defultLine.Extension.Discounts.Add(discount);
                     
+                    // add disc info to summary disc object
                     BillDiscount billDisc = new BillDiscount();
-                    billDisc.Id = fiscalLine.DiscountLine.Name + fiscalLine.DiscountLine.Value.ToString();
+                    billDisc.Id = fiscalLine.DiscountLine.Name + (fiscalLine.DiscountLine.Value).ToString();
                     billDisc.Name =  "OPUST " + fiscalLine.DiscountLine.Name;
-                    billDisc.Value = fiscalLine.DiscountLine.Value;             
+                    billDisc.Value = (decimal)fiscalLine.DiscountLine.Value/100;             
                     if (fiscalLine.DiscountLine.IsPercent)
                         billDisc.Type = BillDiscountType.Percentage;
                     else 
                         billDisc.Type = BillDiscountType.Monetary;
+              
+                    billDiscounts.Add(billDisc);
+                    
+                    // to count FullAmountInclVat
+                    totalDiscountValue += (decimal)fiscalLine.DiscountLine.Value/100;            
+                }
 
-                    // update line information about disc info
+                 // Discount Total information
+                if (fiscalLine.DiscountVat != null)
+                {         
+                     // take the last added line - should be SaleLine or DiscountLine
+                    DefaultLine defultLine = (DefaultLine)lines.Last();
+                    
+                    DefaultLineDiscount discount = new() {
+                        SequenceNumber = defultLine.Extension.Discounts.Count,
+                        DiscountId = fiscalLine.DiscountVat.Name + fiscalLine.DiscountVat.Value.ToString(),
+                        FullAmountInclVat = (decimal)fiscalLine.DiscountVat.Value/100,         
+                    };
+                    
+                     // update line information about disc info
                     defultLine.Extension.Discounts.Add(discount);
+                    
+                    BillDiscount billDisc = new BillDiscount();
+                    billDisc.Id = fiscalLine.DiscountVat.Name + (fiscalLine.DiscountVat.Value).ToString();
+                    billDisc.AdditionalText = "OPUST";
+                    billDisc.Name =  "OPUST " + fiscalLine.DiscountVat.Name;
+                    billDisc.Value = (decimal)fiscalLine.DiscountVat.Value/100;     
+                    billDisc.FullAmountInclVat =   (decimal)fiscalLine.DiscountVat.Value/100;     
+                    if (fiscalLine.DiscountVat.IsPercent)
+                        billDisc.Type = BillDiscountType.Percentage;
+                    else 
+                        billDisc.Type = BillDiscountType.Monetary;
+
+
+                    VatRatesSummary vatDetail = vatDetails.First(item=>item.VatId == fiscalLine.DiscountVat.VatId);   
+                    BillDiscountVatAmount vat = new() {
+                        GroupId = vatDetail.VatId.ToString(),
+                        Percentage = (decimal)vatDetail.VatRate / 100,
+                        InclVat = (decimal)vatDetail.VatSale / 100,
+                        Vat = (decimal)vatDetail.VatAmount / 100,
+                        ExclVat =  ((decimal)vatDetail.VatSale / 100) - ((decimal)vatDetail.VatAmount / 100),
+                    };
+       
+                    
+                    List<BillDiscountVatAmount> vatAmounts = new()
+                    {
+                        vat
+                    };
+                    billDisc.VatAmounts= vatAmounts;
+
+
                     // add disc info to summary disc object
                     billDiscounts.Add(billDisc);
-
-                    totalDiscountValue += fiscalLine.DiscountLine.Value;
+                    totalDiscountValue += (decimal)fiscalLine.DiscountVat.Value/100;
                    
                 }
 
@@ -237,6 +288,7 @@ public class DigitalReceiptService_PEPCO: DigitalReceiptService
                     PaymentTypeInformation payment = CreatedPayment(fiscalLine.Payment);
                     payments.Add(payment);
                 }
+
             };
 
             // Collect and prepare VAT summary information           
@@ -323,12 +375,12 @@ public class DigitalReceiptService_PEPCO: DigitalReceiptService
 
             // ----------------------------------------------------------
             // Prepare and send response to connected client via socket
-            _logger.LogInformation("send ClientResponse - [POS: " + clientId.ToString() + "] [Connection ID: " + connectionId + "]" );
-            var clientResponse = new ClientResponse() { 
-                ClientId = clientId.ToString(), 
-                QRcode = clientId.ToString() + "|" + connectionId
-            };         
-            await _messageHub.Clients.Client(connectionId).SendAsync("ReceiveMessage", JsonSerializer.Serialize<ClientResponse>(clientResponse));
+            // _logger.LogInformation("send ClientResponse - [POS: " + clientId.ToString() + "] [Connection ID: " + connectionId + "]" );
+            // var clientResponse = new ClientResponse() { 
+            //     ClientId = clientId.ToString(), 
+            //     QRcode = clientId.ToString() + "|" + connectionId
+            // };         
+            // await _messageHub.Clients.Client(connectionId).SendAsync("ReceiveMessage", JsonSerializer.Serialize<ClientResponse>(clientResponse));
 
 
 
@@ -340,7 +392,8 @@ public class DigitalReceiptService_PEPCO: DigitalReceiptService
                 UID= "billResponse",
             };
             // string jobj = JsonSerializer.Serialize(response);
-            return new OkObjectResult(null);
+            // return new OkObjectResult(null);
+            return new NoContentResult();
 
         } 
         catch (AuthenticationException authenticationException)
