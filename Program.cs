@@ -18,9 +18,9 @@ internal class Program
     private static void Main(string[] args)
     {
         var clientId = ConsoleHelper.CheckArguments(args);
-        if (clientId == null) return;
+        // if (clientId == null) return;
 
-        
+        clientId = "pepco";
         var builder = WebApplication.CreateBuilder(args);
 
             // Use the certificate and private key files
@@ -84,11 +84,9 @@ internal class Program
 
         app.UseCors("CORSPolicy");
         app.UseRouting();
-        app.UseAuthorization();
         // Configure SignalR endpoint
         app.MapHub<MessageHub>("/connectort");
         app.UseHttpsRedirection();
-        app.UseAuthorization();
         app.MapControllers();
 
         app.Run();

@@ -351,7 +351,11 @@ public class DigitalReceiptService_PEPCO: DigitalReceiptService
             var billOptions = new AddBillOptions();
 
             // 3. add Bill
-            _logger.LogInformation("Send bill to Digital Receipt server....." );
+            _logger.LogInformation("Send bill to Digital Receipt server....." );      
+           
+           var clientResponse = new ClientResponse();
+           clientResponse.ClientId = clientId;
+
             var billResponse = await AnybillClient.Bill.CreateAsync(bill, billOptions);
             switch (billResponse)
             {
@@ -365,22 +369,24 @@ public class DigitalReceiptService_PEPCO: DigitalReceiptService
                     _logger.LogInformation("IsAssigned: " + matchedBillResponse.IsAssigned);
                     break;
                 case IUrlBillResponse urlBillResponse:
+                    clientResponse.QRcode =urlBillResponse.Url;
                     _logger.LogInformation("GetMy website: " + urlBillResponse.Url);
                     break;
                 case IUserIdResponse userIdResponse:
                     _logger.LogInformation("IsAssigned: " + userIdResponse.IsAssigned);
                     break;
             }
-                
 
             // ----------------------------------------------------------
             // Prepare and send response to connected client via socket
-            // _logger.LogInformation("send ClientResponse - [POS: " + clientId.ToString() + "] [Connection ID: " + connectionId + "]" );
+            _logger.LogInformation("send ClientResponse - [POS: " + clientId.ToString() + "] [Connection ID: " + connectionId + "] [QRCode: ] " +  clientResponse.QRcode);
             // var clientResponse = new ClientResponse() { 
-            //     ClientId = clientId.ToString(), 
-            //     QRcode = clientId.ToString() + "|" + connectionId
+            //     // ClientId = clientId.ToString(), 
+            //     // QRcode = clientId.ToString() + "|" + connectionId
+            //     ClientId = "1", 
+            //     QRcode = urlBillResponse.Url;
             // };         
-            // await _messageHub.Clients.Client(connectionId).SendAsync("ReceiveMessage", JsonSerializer.Serialize<ClientResponse>(clientResponse));
+            await _messageHub.Clients.Client(connectionId).SendAsync("ReceiveMessage", JsonSerializer.Serialize<ClientResponse>(clientResponse));
 
 
 
@@ -392,8 +398,9 @@ public class DigitalReceiptService_PEPCO: DigitalReceiptService
                 UID= "billResponse",
             };
             // string jobj = JsonSerializer.Serialize(response);
-            // return new OkObjectResult(null);
-            return new NoContentResult();
+            return new OkResult();
+            // OkObjectResult(null);
+            //return new NoContentResult();
 
         } 
         catch (AuthenticationException authenticationException)

@@ -27,7 +27,7 @@ public static class ConsoleHelper
             }
         } 
         
-        ShowHelpMessage();
+        //ShowHelpMessage();
         return null;
     }
 }
