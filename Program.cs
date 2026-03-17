@@ -3,16 +3,6 @@ using DRproxy.Services;
 using DRproxy.Services.PEPCO;
 using DRproxy.Helper;
 
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Configuration;
-using System.Net;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Server.Kestrel.Https;
-using System.Security.Cryptography.X509Certificates;
-
-
-
 internal class Program
 {
     private static void Main(string[] args)
@@ -22,25 +12,6 @@ internal class Program
 
         clientId = "pepco";
         var builder = WebApplication.CreateBuilder(args);
-
-            // Use the certificate and private key files
-        // var httpsOptions = new HttpsConnectionAdapterOptions
-        // {
-        //     SslProtocols = System.Security.Authentication.SslProtocols.Tls12,
-        //     ClientCertificateMode = ClientCertificateMode.AllowCertificate,
-        //     ServerCertificate = new X509Certificate2("certificate.pem", "stolat22"),
-        // };
-
-
-        // builder.WebHost.ConfigureKestrel(serverOptions =>
-        //         {
-        //             serverOptions.Listen(IPAddress.Any, 5130); // HTTP
-        //             serverOptions.Listen(IPAddress.Any, 7171, listenOptions =>
-        //             {
-        //                 //listenOptions.UseHttps(httpsOptions);
-        //                  listenOptions.UseHttps("certificate.pem", "stolat22");
-        //             }); // HTTPS
-        //         });
 
         builder.Logging.ClearProviders();
         builder.Logging.AddConsole();
